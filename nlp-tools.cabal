@@ -5,7 +5,7 @@ license:             BSD2
 license-file:        LICENSE
 author:              RoboNickBot
 maintainer:          nicklewchenko92@gmail.com
-category:            Language
+category:            Natural Language Processing
 build-type:          Simple
 cabal-version:       >=1.10
 
