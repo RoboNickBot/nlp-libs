@@ -8,9 +8,12 @@ import Text.ParserCombinators.Parsec
 import Data.NGram
 import NLP.Freq
 
-readCrData :: T.Text -> IO (Either ParseError (FreqList TriGram))
+crTriGramFile :: FreqMap TriGram -> String
+crTriGramFile = prettyprint
+
+readCrData :: String -> IO (Either ParseError (FreqMap TriGram))
 readCrData fpath = 
-  do s <- readFile (T.unpack fpath) 
+  do s <- readFile fpath 
      let ngs = (fmap M.fromList . parse triGramFile "err") s
      return ngs
 
@@ -20,9 +23,9 @@ triGramFile = do result <- many line
                  eof
                  return result
 
-line = do a <- letter
-          b <- letter
-          c <- letter
+line = do a <- letter <|> oneOf "<>"
+          b <- letter <|> oneOf "<>"
+          c <- letter <|> oneOf "<>"
           char ' '
           freq <- many (noneOf "\n")
           char '\n'
