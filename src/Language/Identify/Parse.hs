@@ -7,48 +7,40 @@ import Text.ParserCombinators.Parsec
 
 import Language.Identify.Types
 
-readCrData :: T.Text -> IO (Either ParseError NGrams)
+readCrData :: T.Text -> IO (Either ParseError (FreqList TriGram))
 readCrData fpath = 
   do s <- readFile (T.unpack fpath) 
-     let ngs = (fmap M.fromList . parse ngramFile "err") s
+     let ngs = (fmap M.fromList . parse triGramFile "err") s
      return ngs
 
-readPlainText :: T.Text -> NGrams
-readPlainText = ngcount . concat . fmap parseWord 
-                . smooth . T.unpack
+instance NGram TriGram where 
+  ngrams = ngcount . concat . fmap triGrams
+           . smooth . T.unpack
 
-ngcount :: [T.Text] -> NGrams
+ngcount :: (NGram a) => [a] -> FreqList a
 ngcount = foldr (\t m -> if M.member t m
                             then M.adjust (+1) t m
                             else M.insert t 1 m)
                 M.empty
 
-data NGramTok = Start | End | Letter Char
-
-parseWord :: [NGramTok] -> [T.Text]
-parseWord (a:b:c:ts) = 
-  (T.pack . fmap fromTok) [a,b,c] : parseWord (b:c:ts)
-parseWord _ = []
+triGrams :: [NGramTok] -> [TriGram]
+triGrams (a:b:c:ts) = (TriGram a b c) : triGrams (b:c:ts)
+triGrams _ = []
         
-fromTok Start = '<'
-fromTok End = '>'
-fromTok (Letter c) = c
-
-toTok :: String -> [NGramTok]
-toTok word = [Start] ++ (fmap Letter word) ++ [End]
-
 smooth :: String -> [[NGramTok]]
-smooth = fmap toTok . words . fmap toLower 
+smooth = fmap wordToTok . words . fmap toLower 
          . filter (\c -> isAlpha c || isSpace c)
 
-ngramFile :: GenParser Char st [(T.Text, Int)]
-ngramFile = do result <- many line
-               eof
-               return result
+triGramFile :: GenParser Char st [(TriGram, Freq)]
+triGramFile = do result <- many line
+                 eof
+                 return result
 
-line = do ngram <- many (noneOf " ")
+line = do a <- letter
+          b <- letter
+          c <- letter
           char ' '
           freq <- many (noneOf "\n")
           char '\n'
-          return (T.pack ngram, read freq)
+          return (TriGram (toTok a) (toTok b) (toTok c), read freq)
 
