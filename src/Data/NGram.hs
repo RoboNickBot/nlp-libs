@@ -44,4 +44,7 @@ triGrams _ = []
 
 smooth :: String -> [[NGToken]]
 smooth = fmap wordToTok . words . fmap toLower 
-         . filter (\c -> isAlpha c || isSpace c)
+         . filter (\c -> isAlpha c 
+                         || isSpace c 
+                         || c == '\''
+                         || c == '-')
