@@ -5,7 +5,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import Text.ParserCombinators.Parsec
 
-import Data.NGram
+import NLP.General
 import NLP.Freq
 
 crTriGramFile :: FreqList (TriGram NGToken) -> String

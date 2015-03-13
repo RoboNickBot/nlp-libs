@@ -1,14 +1,14 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
-module Data.NGram ( NGToken(..)
-                  , fromTok
-                  , toTok
-                  , wordToTok
-                  , Token(..)
-                  , FeatureOn(..)
-                  , PrettyPrint(..)
-                  , TriGram(..)
-                  , UBlock(..) ) where
+module NLP.General ( NGToken(..)
+                   , fromTok
+                   , toTok
+                   , wordToTok
+                   , Token(..)
+                   , FeatureOn(..)
+                   , PrettyPrint(..)
+                   , TriGram(..)
+                   , UBlock(..) ) where
 
 import qualified Data.Text as T
 import qualified Data.Set as S

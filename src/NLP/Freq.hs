@@ -8,7 +8,7 @@ module NLP.Freq ( cosine
 import qualified Data.Map as M
 import qualified Data.List as L
 
-import Data.NGram
+import NLP.General
 
 type Frequency = Int
 
