@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+
 module NLP.Freq ( cosine
                 , dot
                 , len
@@ -12,8 +14,8 @@ import NLP.General
 
 type Frequency = Int
 
-data FreqList f = 
-  FreqList { freqMap :: M.Map f Frequency}
+data FreqList f = FreqList { freqMap :: M.Map f Frequency}
+                  deriving (Show, Read, Eq, Ord)
 
 mkFreqList :: (Ord f) => [f] -> FreqList f
 mkFreqList fs = 
@@ -31,15 +33,18 @@ instance PrettyPrint f => PrettyPrint (FreqList f) where
                 . M.toList
                 . freqMap
 
-showln (sg,f) = sg ++ " " ++ show f
+instance Feature f => Feature (FreqList f)
 
-{-
-freqMap :: (NGram g) => [g] -> FreqMap g
-freqMap = foldr (\t m -> if M.member t m
-                          then M.adjust (+1) t m
-                          else M.insert t 1 m)
-                M.empty
-        -}
+instance Token t 
+         => MetaFeatureOf 
+              (FreqList (TriGram t)) 
+              [TriGram t] where
+  metaFeatures = mkFreqList
+
+instance MetaFeatureOf (FreqList UBlock) [UBlock] where
+  metaFeatures = mkFreqList
+
+showln (sg,f) = sg ++ " " ++ show f
 
 cosine :: Ord f => FreqList f -> FreqList f -> Double
 cosine a b = dot a b / (len a * len b)

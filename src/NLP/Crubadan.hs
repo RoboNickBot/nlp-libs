@@ -8,7 +8,7 @@ import Text.ParserCombinators.Parsec
 import NLP.General
 import NLP.Freq
 
-crTriGramFile :: FreqList (TriGram NGToken) -> String
+crTriGramFile :: FreqList [TriGram NGToken] -> String
 crTriGramFile = concat . prettyprint
 
 readCrData :: String -> IO (FreqList (TriGram NGToken))

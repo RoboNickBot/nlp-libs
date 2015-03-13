@@ -5,7 +5,9 @@ module NLP.General ( NGToken(..)
                    , toTok
                    , wordToTok
                    , Token(..)
-                   , FeatureOn(..)
+                   , Feature(..)
+                   , FeatureOf(..)
+                   , MetaFeatureOf(..)
                    , PrettyPrint(..)
                    , TriGram(..)
                    , UBlock(..) ) where
@@ -23,20 +25,24 @@ class PrettyPrint p where
 class PlainText x where
   charSeq :: x -> [Char]
 
-class ( Show t, Read t, Eq t
-      , PrettyPrint t) => Token t where
+class ( Show t, Read t, Eq t, Ord t
+      , PrettyPrint t ) => Token t where
   tokens :: (PlainText x) => x -> [t]
 
-class ( Show f, Read f, Eq f
-      , Token t, PrettyPrint f) => FeatureOn f t where
-  features  :: [t] -> [f]
+class ( Show f, Read f, Eq f, Ord f
+      , PrettyPrint f ) => Feature f
+
+class (Feature f, Token t) => FeatureOf f t where
+  features  :: [t] -> f
+  
+class (Feature f, Feature g) => MetaFeatureOf f g where
+  metaFeatures :: g -> f
 
 instance PlainText T.Text where
   charSeq = T.unpack
 
 instance PlainText [Char] where
   charSeq = id
-
   
 data NGToken = WordStart | Letter Char | WordEnd
                deriving (Show, Read, Eq, Ord)
@@ -66,46 +72,43 @@ toTok c = Letter c
 wordToTok :: String -> [NGToken]
 wordToTok word = [WordStart] ++ (fmap Letter word) ++ [WordEnd]
 
-{-
-        
-class (Show g, Read g, Eq g, Ord g) => NGram g where
-  ngrams :: T.Text -> [g]
-  ngshow :: g -> String
-  ngblocks :: g -> S.Set String
-  
-  -}
-
-
 data TriGram tok = TriGram { tri1 :: tok
                            , tri2 :: tok
                            , tri3 :: tok }
                    deriving (Show, Read, Eq, Ord)
 
-{-
-instance NGram (TriGram NGToken) where
-  ngrams = concat . fmap triGrams . smooth . T.unpack
-  ngshow (TriGram a b c) = [fromTok a, fromTok b, fromTok c]
-  ngblocks (TriGram a b c) = S.unions (fmap blocksUsed [a,b,c])
-  -}
-  
-instance FeatureOn (TriGram NGToken) NGToken where
+instance Token t => PrettyPrint (TriGram t) where
+  prettyprint (TriGram a b c) = concat (fmap prettyprint [a,b,c])
+
+instance Token t => PrettyPrint [TriGram t] where
+  prettyprint ((TriGram a b c):ts) = 
+    concat (fmap prettyprint [a,b,c]) ++ prettyprint ts
+
+instance Token t => Feature (TriGram t)
+instance Token t => Feature [TriGram t]
+
+instance FeatureOf [TriGram NGToken] NGToken where
   features (a:b:c:ts) = 
     (TriGram a b c) : (if c == WordEnd
                           then features ts
                           else features (b:c:ts))
   features _ = []
 
-instance PrettyPrint (TriGram NGToken) where
-  prettyprint (TriGram a b c) = concat (fmap prettyprint [a,b,c])
 
 data UBlock = UBlock { ubname :: String } 
               deriving (Show, Read, Eq, Ord)
-
-instance FeatureOn UBlock NGToken where
-  features = fmap UBlock . foldr (\s -> (++) (blocksUsed s)) []
   
 instance PrettyPrint UBlock where  
   prettyprint ub = [ubname ub]
+
+instance PrettyPrint [UBlock] where
+  prettyprint us = concat (fmap prettyprint us)
+
+instance Feature UBlock
+instance Feature [UBlock]
+
+instance FeatureOf [UBlock] NGToken where
+  features = fmap UBlock . foldr (\s -> (++) (blocksUsed s)) []
 
 triGrams :: [NGToken] -> [TriGram NGToken]
 triGrams (a:b:c:ts) = (TriGram a b c) : triGrams (b:c:ts)
