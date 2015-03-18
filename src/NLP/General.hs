@@ -1,4 +1,4 @@
-{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, UndecidableInstances, FunctionalDependencies #-}
 
 module NLP.General ( NGToken(..)
                    , fromTok
@@ -32,11 +32,16 @@ class ( Show t, Read t, Eq t, Ord t
 class ( Show f, Read f, Eq f, Ord f
       , PrettyPrint f ) => Feature f
 
-class (Feature f, Token t) => FeatureOf f t where
-  features  :: [t] -> f
-  
+class (Feature f, Feature g) => FeatureOf f g | f -> g where
+  features  :: g -> f
+
 class (Feature f, Feature g) => MetaFeatureOf f g where
   metaFeatures :: g -> f
+
+instance (FeatureOf a b, FeatureOf b c) 
+         => MetaFeatureOf a c where
+  metaFeatures = (features :: (FeatureOf a b) => (b -> a))
+                 . (features :: (FeatureOf b c) => (c -> b))
 
 instance PlainText T.Text where
   charSeq = T.unpack
@@ -52,6 +57,10 @@ instance PrettyPrint NGToken where
 
 instance Token NGToken where
   tokens = concat . smooth . charSeq
+
+instance PrettyPrint [NGToken] where
+  prettyprint ts = concat (fmap prettyprint ts)
+instance Feature [NGToken]
 
 blocksUsed :: NGToken -> [String]
 blocksUsed (Letter c) =
@@ -87,7 +96,7 @@ instance Token t => PrettyPrint [TriGram t] where
 instance Token t => Feature (TriGram t)
 instance Token t => Feature [TriGram t]
 
-instance FeatureOf [TriGram NGToken] NGToken where
+instance FeatureOf [TriGram NGToken] [NGToken] where
   features (a:b:c:ts) = 
     (TriGram a b c) : (if c == WordEnd
                           then features ts
@@ -107,7 +116,7 @@ instance PrettyPrint [UBlock] where
 instance Feature UBlock
 instance Feature [UBlock]
 
-instance FeatureOf [UBlock] NGToken where
+instance FeatureOf [UBlock] [NGToken] where
   features = fmap UBlock . foldr (\s -> (++) (blocksUsed s)) []
 
 triGrams :: [NGToken] -> [TriGram NGToken]
