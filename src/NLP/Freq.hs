@@ -4,6 +4,7 @@ module NLP.Freq ( cosine
                 , dot
                 , len
                 , mkFreqList
+                , prettyprint
                 , Frequency
                 , FreqList(..) ) where
 
@@ -26,9 +27,11 @@ mkFreqList fs =
                               else M.insert t 1 m)
                   M.empty fs)
 
+instance PState [TriGram] (FreqList TriGram) PClosed
 instance LinkedTo [TriGram] (FreqList TriGram) where
   linkstep = mkFreqList
     
+instance PState [UBlock] (FreqList UBlock) PClosed
 instance LinkedTo [UBlock] (FreqList UBlock) where
   linkstep = mkFreqList
 
@@ -48,3 +51,10 @@ dot a b = (fromIntegral
 len :: F f => FreqList f -> Double
 len = sqrt . fromIntegral . foldr (\a s -> a^2 + s) 0 
       . fmap snd . M.toList . freqMap
+
+prettyprint :: F a => FreqList a -> [String]
+prettyprint (FreqList m) = 
+  let vals = M.toList m 
+  in fmap show (L.sortBy 
+                  (\a b -> compare (snd b) (snd a)) 
+                  vals)
