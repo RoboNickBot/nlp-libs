@@ -4,11 +4,10 @@ module NLP.General ( NGToken(..)
                    , fromTok
                    , toTok
                    , wordToTok
-                   , Token(..)
+                   , F
                    , Feature(..)
-                   , FeatureOf(..)
-                   , MetaFeatureOf(..)
-                   , PrettyPrint(..)
+                   , LinkedTo(..)
+                   , Featuring(..) 
                    , TriGram(..)
                    , UBlock(..) ) where
 
@@ -19,48 +18,64 @@ import Data.CharSet.Unicode.Block (Block(..), blocks)
 import Data.CharSet (member)
 import Data.Char (isSpace, isAlpha, toLower)
 
-class PrettyPrint p where
-  prettyprint :: p -> [String]
+class (Show f, Read f, Eq f, Ord f) => F f
 
-class PlainText x where
+instance (Show f, Read f, Eq f, Ord f) => F f
+
+class F f => Feature f
+
+class (Show x, Read x, Eq x, Ord x) => CharSeq x where
   charSeq :: x -> [Char]
 
-class ( Show t, Read t, Eq t, Ord t
-      , PrettyPrint t ) => Token t where
-  tokens :: (PlainText x) => x -> [t]
+--instance (CharSeq x) => Feature x
 
-class ( Show f, Read f, Eq f, Ord f
-      , PrettyPrint f ) => Feature f
+instance Feature String
 
-class (Feature f, Feature g) => FeatureOf f g | f -> g where
-  features  :: g -> f
-
-class (Feature f, Feature g) => MetaFeatureOf f g where
-  metaFeatures :: g -> f
-
-instance (FeatureOf a b, FeatureOf b c) 
-         => MetaFeatureOf a c where
-  metaFeatures = (features :: (FeatureOf a b) => (b -> a))
-                 . (features :: (FeatureOf b c) => (c -> b))
-
-instance PlainText T.Text where
+instance CharSeq T.Text where
   charSeq = T.unpack
 
-instance PlainText [Char] where
+instance CharSeq [Char] where
   charSeq = id
+
+class (Feature f, Feature g) => LinkedTo f g | g -> f where
+  linkstep :: f -> g
+
+class (Feature f, Feature g) => Featuring f g where
+  features :: f -> g
+
+--instance (LinkedTo f g) => Featuring f g where
+--  features = linkstep
+  
+instance (Featuring f x, LinkedTo x g) => Featuring f g where
+  features = ( linkstep :: (LinkedTo x g)  => x -> g )
+           . ( features :: (Featuring f x) => f -> x )
   
 data NGToken = WordStart | Letter Char | WordEnd
                deriving (Show, Read, Eq, Ord)
 
-instance PrettyPrint NGToken where
-  prettyprint t = [[fromTok t]]
+newtype OrderedTokenList = OrderedTokenList [NGToken]
+                           deriving (Show, Read, Eq, Ord)
 
-instance Token NGToken where
-  tokens = concat . smooth . charSeq
+instance Feature OrderedTokenList
+        
+instance LinkedTo String OrderedTokenList where
+  linkstep = OrderedTokenList . concat . smooth
 
-instance PrettyPrint [NGToken] where
-  prettyprint ts = concat (fmap prettyprint ts)
-instance Feature [NGToken]
+newtype TokenList = TokenList [NGToken]
+                    deriving (Show, Read, Eq, Ord)
+
+instance Feature TokenList
+
+instance LinkedTo OrderedTokenList TokenList where
+  linkstep (OrderedTokenList ts) = TokenList ts
+
+newtype TokenSet = TokenSet (S.Set NGToken)
+                   deriving (Show, Read, Eq, Ord)
+
+instance Feature TokenSet
+
+instance LinkedTo TokenList TokenSet where
+  linkstep (TokenList ts) = TokenSet (S.fromList ts)
 
 blocksUsed :: NGToken -> [String]
 blocksUsed (Letter c) =
@@ -81,45 +96,32 @@ toTok c = Letter c
 wordToTok :: String -> [NGToken]
 wordToTok word = [WordStart] ++ (fmap Letter word) ++ [WordEnd]
 
-data TriGram tok = TriGram { tri1 :: tok
-                           , tri2 :: tok
-                           , tri3 :: tok }
-                   deriving (Show, Read, Eq, Ord)
+data TriGram = TriGram { tri1 :: NGToken
+                       , tri2 :: NGToken
+                       , tri3 :: NGToken }
+               deriving (Show, Read, Eq, Ord)
 
-instance Token t => PrettyPrint (TriGram t) where
-  prettyprint (TriGram a b c) = concat (fmap prettyprint [a,b,c])
+instance Feature [TriGram]
 
-instance Token t => PrettyPrint [TriGram t] where
-  prettyprint ((TriGram a b c):ts) = 
-    concat (fmap prettyprint [a,b,c]) ++ prettyprint ts
-
-instance Token t => Feature (TriGram t)
-instance Token t => Feature [TriGram t]
-
-instance FeatureOf [TriGram NGToken] [NGToken] where
-  features (a:b:c:ts) = 
-    (TriGram a b c) : (if c == WordEnd
-                          then features ts
-                          else features (b:c:ts))
-  features _ = []
-
+instance LinkedTo OrderedTokenList [TriGram] where
+  linkstep (OrderedTokenList ts) = r ts
+            where r (a:b:c:ts) = 
+                    (TriGram a b c) 
+                    : (if c == WordEnd
+                           then r ts
+                           else r (b:c:ts))
+                  r _ = []
 
 data UBlock = UBlock { ubname :: String } 
               deriving (Show, Read, Eq, Ord)
-  
-instance PrettyPrint UBlock where  
-  prettyprint ub = [ubname ub]
 
-instance PrettyPrint [UBlock] where
-  prettyprint us = concat (fmap prettyprint us)
-
-instance Feature UBlock
 instance Feature [UBlock]
 
-instance FeatureOf [UBlock] [NGToken] where
-  features = fmap UBlock . foldr (\s -> (++) (blocksUsed s)) []
+instance LinkedTo TokenList [UBlock] where
+  linkstep (TokenList ts) = 
+    fmap UBlock . foldr (\s -> (++) (blocksUsed s)) [] $ ts
 
-triGrams :: [NGToken] -> [TriGram NGToken]
+triGrams :: [NGToken] -> [TriGram]
 triGrams (a:b:c:ts) = (TriGram a b c) : triGrams (b:c:ts)
 triGrams _ = []
 

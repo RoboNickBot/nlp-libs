@@ -8,10 +8,7 @@ import Text.ParserCombinators.Parsec
 import NLP.General
 import NLP.Freq
 
-crTriGramFile :: FreqList [TriGram NGToken] -> String
-crTriGramFile = concat . prettyprint
-
-readCrData :: String -> IO (FreqList (TriGram NGToken))
+readCrData :: String -> IO (FreqList TriGram)
 readCrData fpath = 
   do s <- readFile fpath 
      let ngs = (fmap M.fromList . parse triGramFile "err") s
@@ -20,7 +17,7 @@ readCrData fpath =
                Left e -> error (show e))
 
 
-triGramFile :: GenParser Char st [(TriGram NGToken, Frequency)]
+triGramFile :: GenParser Char st [(TriGram, Frequency)]
 triGramFile = do result <- many line
                  eof
                  return result
