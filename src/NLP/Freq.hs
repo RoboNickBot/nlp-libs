@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances #-}
 
 module NLP.Freq ( cosine
+                , cosineM
                 , dot
                 , len
                 , mkFreqList
@@ -8,6 +9,8 @@ module NLP.Freq ( cosine
                 , Frequency
                 , FreqList(..) ) where
 
+import Control.Monad
+import Control.Applicative
 import qualified Data.Map as M
 import qualified Data.List as L
 
@@ -47,6 +50,23 @@ dot a b = (fromIntegral
   where l k = case M.lookup k (freqMap b) of
                 Just v -> v
                 _ -> 0
+
+cosineM :: (F f, Monad m, Functor m, Applicative m)
+        => FreqList f 
+        -> ((f -> m Int), m Int)
+        -> m Double
+cosineM a (nT, getLen) = 
+  (/) <$> dotM a nT <*> ((* len a) . fromIntegral <$> getLen)
+
+dotM :: (F f, Monad m, Functor m)
+     => FreqList f -> (f -> m Int) -> m Double
+dotM a nT = (fmap fromIntegral 
+             . foldM (compareM nT) 1
+             . M.toList) (freqMap a)
+
+compareM :: (F f, Functor m) 
+         => (f -> m Int) -> Int -> (f, Int) -> m Int
+compareM nT acc (k, aV) = fmap ((+ acc).(* aV)) (nT k)
 
 len :: F f => FreqList f -> Double
 len = sqrt . fromIntegral . foldr (\a s -> a^2 + s) 0 
